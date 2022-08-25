@@ -1,0 +1,11 @@
+apiVersion: rds.services.k8s.aws/v1alpha1
+kind: DBClusterParameterGroup
+metadata:
+  name: test
+spec:
+  name: test
+  description: test
+  family: "aurora-mysql5.7"
+  tags:
+    - key: environment
+      value: dev

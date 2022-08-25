@@ -1,0 +1,13 @@
+apiVersion: rds.services.k8s.aws/v1alpha1
+kind: DBParameterGroup
+metadata:
+  name: name1
+spec:
+  name: name1
+  description: any description
+  family: postgres13
+  parameterOverrides:
+    random: lol
+  tags:
+    - key: environment
+      value: dev

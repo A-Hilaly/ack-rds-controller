@@ -360,6 +360,9 @@ func (rm *resourceManager) resetParameters(
 	for _, paramName := range toDelete {
 		// default to this if something goes wrong looking up parameter
 		// defaults
+		fmt.Println("---")
+		fmt.Printf("--- searching for %s/%s\n", *family, *groupName)
+		fmt.Println("todelete is", toDelete)
 		applyMethod := svcsdk.ApplyMethodImmediate
 		pMeta, err = cachedParamMeta.get(
 			ctx, *family, paramName, rm.getFamilyParameters,
@@ -382,6 +385,7 @@ func (rm *resourceManager) resetParameters(
 		inputParams = append(inputParams, p)
 	}
 
+	fmt.Println("+++")
 	rlog.Debug(
 		"resetting parameters from parameter group",
 		"parameters", toDelete,
@@ -409,7 +413,7 @@ func (rm *resourceManager) modifyParameters(
 	toModify map[string]*string,
 ) (err error) {
 	rlog := ackrtlog.FromContext(ctx)
-	exit := rlog.Trace("rm.resetParameters")
+	exit := rlog.Trace("rm.modifyParameters")
 	defer func() { exit(err) }()
 
 	var pMeta *paramMeta
@@ -417,10 +421,12 @@ func (rm *resourceManager) modifyParameters(
 	for paramName, paramValue := range toModify {
 		// default to this if something goes wrong looking up parameter
 		// defaults
+		fmt.Printf("modifying %s/%s | %s\n", *family, paramName, *paramValue)
 		applyMethod := svcsdk.ApplyMethodImmediate
 		pMeta, err = cachedParamMeta.get(
 			ctx, *family, paramName, rm.getFamilyParameters,
 		)
+		fmt.Println("Locking went good")
 		if err != nil {
 			return err
 		}
@@ -589,6 +595,14 @@ type paramMetaCache struct {
 	cache  map[string]map[string]paramMeta
 }
 
+func (c *paramMetaCache) getFamillyParamMetas(
+	ctx context.Context,
+	family string,
+	fetcher metaFetcher,
+) {
+
+}
+
 // get retrieves the metadata for a named parameter group family and parameter
 // name.
 func (c *paramMetaCache) get(
@@ -597,15 +611,17 @@ func (c *paramMetaCache) get(
 	name string,
 	fetcher metaFetcher,
 ) (*paramMeta, error) {
-	c.RLock()
-	defer c.RUnlock()
-
 	var err error
 	var found bool
 	var metas map[string]paramMeta
 	var meta paramMeta
 
+	// We need to release the lock right after the read operation, because
+	// loadFamilly will might call a writeLock at L619
+	c.RLock()
 	metas, found = c.cache[family]
+	c.RUnlock()
+
 	if !found {
 		c.misses++
 		metas, err = c.loadFamily(ctx, family, fetcher)
@@ -613,6 +629,7 @@ func (c *paramMetaCache) get(
 			return nil, err
 		}
 	}
+
 	meta, found = metas[name]
 	if !found {
 		return nil, newErrUnknownParameter(name)
