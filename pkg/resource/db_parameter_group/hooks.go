@@ -21,11 +21,10 @@ import (
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-
-	svcapitypes "github.com/aws-controllers-k8s/rds-controller/apis/v1alpha1"
 	"github.com/aws/aws-sdk-go/aws"
 	svcsdk "github.com/aws/aws-sdk-go/service/rds"
 
+	svcapitypes "github.com/aws-controllers-k8s/rds-controller/apis/v1alpha1"
 	"github.com/aws-controllers-k8s/rds-controller/pkg/util"
 )
 
@@ -375,7 +374,7 @@ func (rm *resourceManager) modifyParameters(
 	toModify map[string]*string,
 ) (err error) {
 	rlog := ackrtlog.FromContext(ctx)
-	exit := rlog.Trace("rm.resetParameters")
+	exit := rlog.Trace("rm.modifyParameters")
 	defer func() { exit(err) }()
 
 	var pMeta *paramMeta
@@ -563,15 +562,17 @@ func (c *paramMetaCache) get(
 	name string,
 	fetcher metaFetcher,
 ) (*paramMeta, error) {
-	c.RLock()
-	defer c.RUnlock()
-
 	var err error
 	var found bool
 	var metas map[string]paramMeta
 	var meta paramMeta
 
+	// We need to release the lock right after the read operation, because
+	// loadFamilly will might call a writeLock at L619
+	c.RLock()
 	metas, found = c.cache[family]
+	c.RUnlock()
+
 	if !found {
 		c.misses++
 		metas, err = c.loadFamily(ctx, family, fetcher)

@@ -68,6 +68,14 @@ class TestDBParameterGroup:
         assert latest is not None
         assert latest['Description'] == resource_desc
 
+        params = db_parameter_group.get_parameters(resource_name)
+        test_params = filter(lambda x: x["ParameterName"] in ["array_nulls", "authentication_timeout"], params)
+        assert len(test_params) == 2
+        assert test_params[0]["ParameterName"] == "array_nulls"
+        assert test_params[0]["ParameterValue"] == "true"
+        assert test_params[1]["ParameterName"] == "authentication_timeout"
+        assert test_params[1]["ParameterValue"] == "50"
+
         arn = latest['DBParameterGroupArn']
         expect_tags = [
             {"Key": "environment", "Value": "dev"}
